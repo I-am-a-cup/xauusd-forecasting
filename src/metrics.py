@@ -44,7 +44,7 @@ def attach_actuals(predictions: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFr
     """Добавляет цену закрытия на исходную и целевую даты и проверяет горизонт."""
     missing = PREDICTION_COLUMNS - set(predictions.columns)
     if missing:
-        raise ValueError(f"Prediction columns missing: {sorted(missing)}")
+        raise ValueError(f"Отсутствуют столбцы прогнозов: {sorted(missing)}")
     if not {"date", "close"}.issubset(prices.columns):
         raise ValueError("В таблице цен должны быть столбцы date и close")
 
@@ -62,7 +62,7 @@ def attach_actuals(predictions: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFr
     pred["origin_date"] = pd.to_datetime(pred["origin_date"], errors="raise")
     pred["target_date"] = pd.to_datetime(pred["target_date"], errors="raise")
     if pred.duplicated(["model", "horizon", "origin_date"]).any():
-        raise ValueError("Duplicate model/horizon/origin forecast")
+        raise ValueError("Повторяется прогноз для модели, горизонта и даты")
     if pred["horizon"].isna().any() or not pred["horizon"].isin([1, 5]).all():
         raise ValueError("Неверный горизонт: допускается только 1 или 5")
 
