@@ -1,1 +1,1 @@
-"""Dmitry: implement horizon-specific Random Forest estimators."""
+"""Дима: реализовать Random Forest с отдельным прогнозом на 1 и 5 торговых дней."""

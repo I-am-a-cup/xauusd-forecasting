@@ -1,44 +1,96 @@
-# XAU/USD Forecasting — Practices 8–9
+# Прогнозирование цены золота XAU/USD — практические занятия № 8–9
 
-Comparative forecasting of the daily closing price of gold (XAU/USD) for **1 and 5 trading observations ahead**.
+**Групповой исследовательский проект по дисциплине «Анализ данных и машинное обучение».**
 
-> **Status:** Project scaffold. No real Dukascopy data have been downloaded or evaluated yet. All experiment results are pending.
+> **Состояние проекта:** создана основа репозитория, реализованы наивный прогноз и общие метрики, добавлены проверки корректности. Реальные котировки Dukascopy пока не загружены; модели ARIMA, Random Forest и MLP ещё не обучены. Результаты исследования отсутствуют. Демонстрационные данные нельзя выдавать за реальные.
 
-## Assignment
-- Twelve months of XAU/USD daily OHLC quotes from Dukascopy, anchored to the assignment date.
-- Compare naive persistence, ARIMA, Random Forest, and a small MLP.
-- Use chronological validation without future leakage; evaluate the same forecast origins for both horizons and every model.
-- Report MAE, RMSE, sMAPE, directional accuracy, stability, horizon effects, and computational cost.
-- Deliver a reproducible open repository, analysis, and a 10-minute presentation.
+## Цель исследования
 
-## Team ownership
-| Area | Owner | Deliverables |
-|---|---|---|
-| Experimental design, baseline, integration | Captain | experiment protocol, baseline, metric calculations, conclusions |
-| Data engineering and validation | Alexey | sourced CSV, EDA, preprocessing, folds and feature pipeline |
-| Statistical + traditional ML | Dmitry | ARIMA and Random Forest with forecasts |
-| Neural network | Andrey | MLP and computation/stability analysis |
+Сравнить методы прогнозирования **дневной цены закрытия золота XAU/USD** на **1 и 5 торговых дней вперёд** и выяснить, превосходят ли более сложные методы наивный прогноз.
 
-Everyone prepares descriptions/plots for their part, reviews another component, and joins the presentation.
+Требования задания: исторические дневные котировки за 12 месяцев на дату выдачи, четыре подхода к прогнозированию, временная валидация без использования будущих данных, сопоставимые тестовые даты, метрики MAE, RMSE, sMAPE и точность направления движения цены, анализ устойчивости и вычислительных затрат.
 
-## Getting started (Windows PowerShell)
+**Источник:** [Dukascopy — XAU/USD](https://www.dukascopy-node.app/instrument/xauusd). Дата выдачи задания требует подтверждения. Интервал 28.10.2025–28.10.2026 — предварительное предположение, а не подтверждённый период выгрузки.
+
+## Сравниваемые методы
+
+| Подход | Алгоритм | Ответственный | Состояние |
+|---|---|---|---|
+| Наивный прогноз | Сохранение последней цены (Naive) | Капитан | Реализован и протестирован |
+| Статистический | ARIMA | Дима | Заготовка модуля |
+| Машинное обучение | Random Forest | Дима | Заготовка модуля |
+| Нейросетевой | Небольшая MLP | Андрей | Заготовка модуля |
+
+## Участники и обязанности
+
+- **Капитан:** постановка исследования, гипотезы, наивный прогноз, единые метрики, интеграция, выводы и итоговая презентация.
+- **Лёша:** получение и описание котировок, очистка, разведочный анализ данных (EDA), признаки, подготовка временной валидации вместе с капитаном.
+- **Дима:** статистическая модель ARIMA и Random Forest, подбор параметров и сравнимые прогнозы.
+- **Андрей:** компактная MLP, оценка нейросети, устойчивости и вычислительных затрат.
+
+Все участники готовят материал по своей части для отчёта, проверяют чужой код и участвуют в защите.
+
+## Структура репозитория
+
+```text
+README.md               — описание проекта, методики и итоговых результатов
+EXPERIMENT.md           — утверждаемый протокол исследования
+CONTRIBUTING.md         — правила командной разработки
+data/raw/               — исходные котировки (после выгрузки)
+data/processed/         — проверенные и обработанные данные
+src/preprocessing.py    — подготовка котировок
+src/features.py         — создание признаков
+src/validation.py       — временная валидация
+src/models/             — четыре модели прогнозирования
+src/metrics.py          — метрики и проверка сопоставимости прогнозов
+tests/                  — автоматические тесты
+results/predictions/    — прогнозы на тестовых датах
+results/figures/        — графики результатов
+presentation/           — презентация для защиты
+run_experiment.py       — точка запуска эксперимента
+requirements.txt        — зависимости
+```
+
+## Запуск проекта
+
+В Windows PowerShell:
+
 ```powershell
+git clone https://github.com/I-am-a-cup/xauusd-forecasting.git
+cd xauusd-forecasting
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python -m pytest -q
 python run_experiment.py --demo
 ```
-The demo runs on **synthetic sample data only**. Do not report its results as experimental conclusions.
 
-## Data convention
-Processed CSV: `date,open,high,low,close`, dates in ascending order (date is the daily trading observation date; exact timestamp convention documented by data owner). Define whether Bid or Ask was used and UTC/day boundaries. Keep the actual raw/processed CSV in the repository once validated.
+> Ключ `--demo` запускает **только проверку на искусственных данных**. Он не загружает XAU/USD и не оценивает реальные модели. Запуск полного эксперимента будет добавлен после реализации обработки данных и всех моделей.
 
-## Predictions contract
-Every model emits `origin_date,target_date,horizon,model,y_pred`. The common evaluator joins the actual `y_true` from prices by `target_date`. Origins are trading-row positions after the current day's Close is known. Horizons are **observation steps**, not calendar days.
+## Соглашение о данных
 
-## Research and reproduction
-See [EXPERIMENT.md](EXPERIMENT.md). Model code is a starter scaffold: ARIMA/RF/MLP and real temporal validation are **not implemented yet**. Do not claim fitted results before running them.
+Подготовленный CSV должен содержать столбцы `date,open,high,low,close`. Даты отсортированы по времени без дубликатов; одно наблюдение соответствует одной завершённой дневной торговой свече. Правила определения даты свечи, временную зону, тип цены (Bid/Ask) и обработку пропусков необходимо зафиксировать **по фактическому экспорту**.
 
-## Data provenance
-Required source: [Dukascopy XAU/USD](https://www.dukascopy-node.app/instrument/xauusd). Proposed time window is 2025-10-28—2026-10-28 **only if** the assignment was issued 2026-10-28.
+Имена технических столбцов оставлены латиницей для совместимости с Python и моделями.
+
+## Единый формат прогнозов
+
+Любая модель возвращает таблицу:
+
+| Столбец | Значение |
+|---|---|
+| `origin_date` | Дата, на которую известна последняя цена и сформирован прогноз |
+| `target_date` | Дата, для которой сделан прогноз |
+| `horizon` | Горизонт: 1 или 5 следующих торговых наблюдений |
+| `model` | Идентификатор алгоритма |
+| `y_pred` | Спрогнозированная цена закрытия |
+
+Общий модуль оценки добавляет фактическую цену `y_true` и известную на момент прогноза цену `origin_close`. При сравнении моделей используются одинаковые даты формирования прогнозов для **обоих горизонтов**.
+
+## Воспроизводимость и результаты
+
+Методика, рабочие гипотезы и ограничения: [EXPERIMENT.md](EXPERIMENT.md). Правила работы команды и оформления коммитов: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**В финальном отчёте здесь появятся:** характеристики ряда, точный период и объём данных, схема временной валидации, гиперпараметры, таблицы метрик, графики ошибок, анализ устойчивости, вычислительные затраты и обоснованные выводы. Сейчас эти разделы намеренно не заполнены вымышленными результатами.
+
+Репозиторий предназначен для учебного исследования, а не для готовых инвестиционных рекомендаций.

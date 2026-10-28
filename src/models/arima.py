@@ -1,1 +1,1 @@
-"""Dmitry: implement ARIMA with a common prediction output contract."""
+"""Дима: реализовать ARIMA с согласованным форматом возвращаемых прогнозов."""

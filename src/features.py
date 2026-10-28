@@ -1,1 +1,4 @@
-"""Data owner: construct historical-only lag/return features. No future leakage."""
+"""Лёша: реализовать лаговые признаки и доходности только из прошлых наблюдений.
+
+Признаки на дату t не должны использовать значения после t.
+"""

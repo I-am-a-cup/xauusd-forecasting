@@ -1,50 +1,94 @@
-# Experiment protocol (draft, approve before training)
+# Протокол исследования: прогнозирование золота XAU/USD
 
-## Question
-Can statistical, machine-learning or neural-network methods beat persistence when forecasting daily XAU/USD Close 1 and 5 trading sessions ahead?
+> **Статус:** предварительная согласуемая версия. Конкретные границы данных и валидации определяются после аудита выгрузки и утверждаются до обучения моделей.
 
-## Research hypotheses (to test, not presumed true)
-- **H1 (1 day):** At least one non-naive model achieves lower holdout MAE than persistence for horizon 1.
-- **H2 (5 days):** At least one non-naive model achieves lower holdout MAE than persistence for horizon 5.
-- **H3 (horizon):** Absolute forecast errors tend to be higher at horizon 5 than at horizon 1 on matched forecast origins.
-These are working hypotheses. Report their observed support or rejection, and avoid interpreting results from a single year as universal evidence.
+## 1. Постановка и исследовательский вопрос
 
-## Instrument and observations
-- Dukascopy XAU/USD, OHLC D1, twelve months prior to the **actual assignment date** (to be confirmed).
-- Proposed Bid Close and UTC export are conventions to validate, **not facts about the downloaded data**.
-- Record first/last complete observations, timezone/day cutoffs, weekends, abnormal gaps, missing bars, and any rejected records.
-- Never invent prices for non-trading days.
+**Объект:** временной ряд дневной цены закрытия золота XAU/USD.
 
-## Forecast origin and targets
-At the close of trading observation t, features may use observations <= t only. Targets are C[t+1], C[t+5]. A target is available for fitting only once that future observation has occurred.
+**Задача:** оценить прогноз `Close` на 1 и 5 **торговых наблюдений** вперёд и выяснить, превосходят ли ARIMA, Random Forest и MLP наивный прогноз сохранения последней известной цены.
 
-## Candidate models
-1. Persistence baseline: C-hat[t+h] = C[t].
-2. ARIMA (statistical).
-3. RandomForestRegressor (ML), two direct horizon-specific estimators.
-4. Small MLP (neural), two direct horizon-specific estimators.
-Optional extras only after the four approaches are reproducible.
+Цель — корректное сравнительное исследование, а не доказательство, что нейросеть обязательно лучше простого алгоритма.
 
-## Validation — planned
-- Reserve the final ~20% of the time-indexed observations for a single holdout; choose exact indices after inspecting data.
-- On earlier data, validate on multiple expanding temporal folds.
-- At each fit origin, exclude **all training examples whose target observation occurs later than the model-fit cutoff**. A gap is not a substitute for verifying target availability.
-- Fit imputation, scalers, feature selection, and hyperparameters only on training data in each fold.
-- Select the **same forecast-origin dates** for all models and both horizons; ensure C[t+5] is observed, or omit that origin from both horizons.
-- Define model updating on holdout beforehand: either refit all per origin on only available data, or freeze all models at a common cutoff and use new observed covariates without refitting. Record deviations explicitly.
-- Do not tune hyperparameters on the final holdout.
+## 2. Проверяемые гипотезы
 
-## Primary and secondary metrics
-Primary: MAE, in USD per troy ounce. Also report RMSE, sMAPE, and direction accuracy.
-- sMAPE = 100 * mean(2|forecast-actual| / (|actual| + |forecast|)); define the zero/zero term as 0.
-- Direction accuracy = mean(sign(forecast-C[t]) == sign(actual-C[t])). For persistence the predicted sign is zero, so interpret this diagnostic carefully, particularly when actual changes are nonzero.
-Compute these independently per horizon, also comparing absolute MAE/RMSE to persistence. Report fit and inference wall time, fixed random seeds, and stability across evaluation windows.
+- **Г1:** хотя бы одна из сложных моделей обеспечивает меньшую MAE на тестовом участке по сравнению с Naive при горизонте 1 день.
+- **Г2:** хотя бы одна из сложных моделей обеспечивает меньшую MAE по сравнению с Naive при горизонте 5 дней.
+- **Г3:** на одинаковых датах формирования прогноза средняя абсолютная ошибка при горизонте 5 дней выше, чем при горизонте 1 день.
 
-## Outputs
-Prediction CSV schema: `origin_date,target_date,horizon,model,y_pred`.
-The evaluator adds `y_true` and `origin_close` using the canonical price dataset.
-Never evaluate a prediction on a target that is missing from data.
+Гипотезы не следует заранее считать подтверждёнными. Если данные их не поддержат, это тоже результат исследования.
 
-## Limitations and status
-Small sample, price nonstationarity, price-level metrics, spot/CFD quote conventions, transaction costs excluded, no causal or trading-performance claims.
-**Pending:** actual data audit, fold boundaries, model training, measured results, and approval of methodological choices.
+## 3. Источник и предварительная спецификация данных
+
+- Финансовый инструмент: **XAU/USD**, цена в долларах США за тройскую унцию.
+- Источник: [Dukascopy — XAU/USD](https://www.dukascopy-node.app/instrument/xauusd).
+- Формат исходных котировок: дневные свечи OHLC.
+- Период: последние **12 месяцев на дату выдачи задания**. Дата выдачи уточняется.
+- **Предложение на проверку:** использовать Bid Close и экспорт с временной зоной UTC+0; это выбор команды, а не факт о ещё не выгруженных данных.
+- До анализа задокументировать реальные начало и конец ряда, временную зону, формирование дневных свечей, неторговые дни, пропуски и дубликаты.
+- Нельзя добавлять «торговые» дни искусственным заполнением отсутствующих дат без обоснования.
+
+## 4. Момент прогноза и горизонты
+
+Пусть `C[t]` — известная после завершения торгового дня `t` цена закрытия.
+
+На момент `t` необходимо предсказать `C[t+1]` и `C[t+5]`. Индекс `+5` означает **пять следующих торговых наблюдений**, а не календарных суток.
+
+Признаки при прогнозе для даты `t` строятся только из данных с датами не позже `t`. Обучающие примеры допустимы только тогда, когда их целевые значения уже стали известны к дате соответствующего обучения.
+
+## 5. Сравниваемые модели
+
+1. **Naive:** для обоих горизонтов `прогноз = C[t]`.
+2. **ARIMA:** классический статистический метод; допустим многошаговый прогноз с фиксированной историей обучения.
+3. **Random Forest:** отдельные модели прямого прогноза на 1 и 5 дней на основе лаговых признаков.
+4. **MLP:** небольшая полносвязная нейросеть, отдельно обучаемая для двух горизонтов.
+
+Гиперпараметры и перечень признаков необходимо выбрать и обосновать **по результатам обучающей временной валидации**, не используя итоговый тест.
+
+## 6. План временной валидации
+
+- Предварительно последние около **20% наблюдений** резервируются для единого итогового теста; точная граница — после проверки фактической выборки.
+- На более раннем отрезке проводится валидация по нескольким последовательным временным окнам с расширяющейся обучающей частью.
+- При обучении на дату отсечения исключаются примеры, для которых целевое значение стало известно позже этой даты.
+- Масштабирование, заполнение пропусков, выбор признаков и подбор параметров выполняются внутри соответствующего обучающего окна.
+- Тестовые **даты формирования прогноза одинаковы** для всех моделей и обоих горизонтов. Прогнозы учитываются только там, где известны обе целевые цены.
+- До запуска тестирования зафиксировать, будут ли модели переобучаться по мере поступления новых наблюдений. Политика обновления должна быть согласованной и описанной.
+- Запрещено менять настройки моделей по результатам итогового теста.
+
+Фиксированный зазор между выборками может помогать, но сам по себе не заменяет контроль фактической доступности целевых значений.
+
+## 7. Метрики
+
+**Основная метрика сравнения:** средняя абсолютная ошибка **MAE**, единица измерения — доллары США за тройскую унцию.
+
+Обязательные дополнительные метрики:
+
+- **RMSE:** корень из средней квадратичной ошибки, в тех же единицах.
+- **sMAPE:** `100 × среднее(2 × |прогноз − факт| / (|факт| + |прогноз|))`, в процентах. Если знаменатель равен нулю, вклад такого наблюдения принят равным нулю.
+- **Точность направления:** доля совпадений `sign(прогноз − C[t])` и `sign(факт − C[t])`, в процентах. Для Naive прогнозируемое изменение равно нулю, поэтому эту метрику требуется комментировать отдельно.
+
+Метрики считаются отдельно для горизонтов 1 и 5, а затем сопоставляются с Naive на одних и тех же датах.
+
+## 8. Устойчивость, затраты и ограничения
+
+- Сравнить ошибки на разных временных участках и при обоих горизонтах.
+- Указать разброс результатов, размер тестовой выборки и случаи крупных ошибок.
+- Зафиксировать время обучения и получения прогнозов, версии библиотек и случайные зерна.
+- Учитывать ограниченный размер годовой выборки и риск переобучения.
+- Не делать выводов о торговой прибыли или причинных связях из одних метрик прогноза цены.
+
+## 9. Интерфейс результатов
+
+Файл каждого алгоритма выдаёт столбцы:
+
+```text
+origin_date,target_date,horizon,model,y_pred
+```
+
+Общий оценщик по эталонному набору цен добавляет `y_true` и `origin_close`, проверяет корректность горизонта и совпадение дат, затем рассчитывает показатели.
+
+## 10. Что ещё требуется для завершения
+
+Фактический CSV и аудит качества данных; полный модуль временной валидации; реализация и обучение ARIMA, Random Forest, MLP; таблицы и графики результатов; фиксация зависимостей; итоговый аналитический README и презентация на 10 минут.
+
+**Ни одна гипотеза пока не проверена на реальных данных.**

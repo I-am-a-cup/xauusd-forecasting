@@ -1,1 +1,4 @@
-"""Data owner: implement and document Dukascopy daily OHLC preparation."""
+"""Лёша: реализовать подготовку дневных котировок OHLC из Dukascopy.
+
+Документировать очистку, дубликаты, пропуски и правила определения торговых дат.
+"""

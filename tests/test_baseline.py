@@ -36,21 +36,21 @@ def test_naive_does_not_consult_future_close():
 
 
 def test_baseline_rejects_incomplete_five_day_horizon():
-    with pytest.raises(ValueError, match="No observed target"):
+    with pytest.raises(ValueError, match="Нет доступной целевой даты"):
         predict_naive(sample_prices(), [3], horizons=(1, 5))
 
 
 def test_evaluator_rejects_wrong_target_date_for_horizon():
     preds = predict_naive(sample_prices(), [0], horizons=(1, 5))
     preds.loc[preds.horizon == 5, "target_date"] = "2026-10-02"
-    with pytest.raises(ValueError, match="inconsistent"):
+    with pytest.raises(ValueError, match="не соответствует заявленному горизонту"):
         attach_actuals(preds, sample_prices())
 
 
 def test_comparison_rejects_missing_origin():
     preds = predict_naive(sample_prices(), [0, 1], horizons=(1, 5))
     preds = preds.loc[~((preds.horizon == 5) & (preds.origin_date == "2026-10-02"))]
-    with pytest.raises(ValueError, match="Unequal forecast origins"):
+    with pytest.raises(ValueError, match="Даты формирования прогнозов не совпадают"):
         assert_comparable_predictions(preds)
 
 
@@ -59,5 +59,5 @@ def test_comparison_rejects_different_targets_between_models():
     extra = preds.copy()
     extra["model"] = "another"
     extra.loc[(extra.horizon == 5) & (extra.origin_date == "2026-10-01"), "target_date"] = "2026-10-07"
-    with pytest.raises(ValueError, match="Models disagree"):
+    with pytest.raises(ValueError, match="Модели используют разные целевые даты"):
         assert_comparable_predictions(pd.concat([preds, extra], ignore_index=True))
