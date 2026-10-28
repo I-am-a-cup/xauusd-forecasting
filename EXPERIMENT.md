@@ -3,6 +3,12 @@
 ## Question
 Can statistical, machine-learning or neural-network methods beat persistence when forecasting daily XAU/USD Close 1 and 5 trading sessions ahead?
 
+## Research hypotheses (to test, not presumed true)
+- **H1 (1 day):** At least one non-naive model achieves lower holdout MAE than persistence for horizon 1.
+- **H2 (5 days):** At least one non-naive model achieves lower holdout MAE than persistence for horizon 5.
+- **H3 (horizon):** Absolute forecast errors tend to be higher at horizon 5 than at horizon 1 on matched forecast origins.
+These are working hypotheses. Report their observed support or rejection, and avoid interpreting results from a single year as universal evidence.
+
 ## Instrument and observations
 - Dukascopy XAU/USD, OHLC D1, twelve months prior to the **actual assignment date** (to be confirmed).
 - Proposed Bid Close and UTC export are conventions to validate, **not facts about the downloaded data**.

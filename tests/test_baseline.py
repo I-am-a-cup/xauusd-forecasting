@@ -1,27 +1,63 @@
 import pandas as pd
+import pytest
 from src.models.baseline import predict_naive
-from src.metrics import attach_actuals, evaluate
+from src.metrics import attach_actuals, evaluate, assert_comparable_predictions
+
+
+def sample_prices():
+    return pd.DataFrame({
+        "date": pd.to_datetime([
+            "2026-10-01", "2026-10-02", "2026-10-05", "2026-10-06",
+            "2026-10-07", "2026-10-08", "2026-10-09"]),
+        "close": [100, 101, 102, 103, 104, 105, 106],
+    })
 
 
 def test_naive_horizons_and_target_dates():
-    prices = pd.DataFrame({
-        "date": pd.to_datetime(["2026-10-01", "2026-10-02", "2026-10-05",
-                                "2026-10-06", "2026-10-07", "2026-10-08",
-                                "2026-10-09"]),
-        "close": [100, 101, 102, 103, 104, 105, 106],
-    })
-    p = predict_naive(prices, [0, 1], horizons=(1, 5))
-    assert len(p) == 4
-    assert p.loc[(p.horizon==5)&(p.origin_date=="2026-10-01"), "target_date"].iloc[0] == "2026-10-08"
-    assert set(p.loc[p.origin_date=="2026-10-01","y_pred"]) == {100.0}
-    e = evaluate(attach_actuals(p, prices))
-    assert len(e) == 2
-    assert set(e.horizon) == {1,5}
+    prices = sample_prices()
+    preds = predict_naive(prices, [0, 1], horizons=(1, 5))
+    assert len(preds) == 4
+    assert preds.loc[
+        (preds.horizon == 5) & (preds.origin_date == "2026-10-01"),
+        "target_date"].iloc[0] == "2026-10-08"
+    assert set(preds.loc[preds.origin_date == "2026-10-01", "y_pred"]) == {100.0}
+    assert_comparable_predictions(preds)
+    scored = evaluate(attach_actuals(preds, prices))
+    assert len(scored) == 2
+    assert set(scored.horizon) == {1, 5}
 
 
 def test_naive_does_not_consult_future_close():
-    prices = pd.DataFrame({"date": pd.date_range("2026-01-01",periods=7), "close": [1.,2.,3.,4.,5.,6.,7.]})
-    a = predict_naive(prices, [0], horizons=(5,))
-    prices.loc[5,"close"] = 9999.
-    b = predict_naive(prices, [0], horizons=(5,))
-    assert a.y_pred.iloc[0] == b.y_pred.iloc[0] == 1.0
+    prices = sample_prices()
+    p1 = predict_naive(prices, [0], horizons=(5,))
+    prices.loc[5, "close"] = 9999.0
+    p2 = predict_naive(prices, [0], horizons=(5,))
+    assert p1.y_pred.iloc[0] == p2.y_pred.iloc[0] == 100.0
+
+
+def test_baseline_rejects_incomplete_five_day_horizon():
+    with pytest.raises(ValueError, match="No observed target"):
+        predict_naive(sample_prices(), [3], horizons=(1, 5))
+
+
+def test_evaluator_rejects_wrong_target_date_for_horizon():
+    preds = predict_naive(sample_prices(), [0], horizons=(1, 5))
+    preds.loc[preds.horizon == 5, "target_date"] = "2026-10-02"
+    with pytest.raises(ValueError, match="inconsistent"):
+        attach_actuals(preds, sample_prices())
+
+
+def test_comparison_rejects_missing_origin():
+    preds = predict_naive(sample_prices(), [0, 1], horizons=(1, 5))
+    preds = preds.loc[~((preds.horizon == 5) & (preds.origin_date == "2026-10-02"))]
+    with pytest.raises(ValueError, match="Unequal forecast origins"):
+        assert_comparable_predictions(preds)
+
+
+def test_comparison_rejects_different_targets_between_models():
+    preds = predict_naive(sample_prices(), [0, 1], horizons=(1, 5))
+    extra = preds.copy()
+    extra["model"] = "another"
+    extra.loc[(extra.horizon == 5) & (extra.origin_date == "2026-10-01"), "target_date"] = "2026-10-07"
+    with pytest.raises(ValueError, match="Models disagree"):
+        assert_comparable_predictions(pd.concat([preds, extra], ignore_index=True))
