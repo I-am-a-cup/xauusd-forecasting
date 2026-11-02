@@ -1,0 +1,52 @@
+{
+  "source": "data\\processed\\xauusd_daily_dukascopy.csv",
+  "test_last_known": "2026-08-14",
+  "first_test_origin": "2026-08-17",
+  "last_test_origin": "2026-10-20",
+  "test_origins": 47,
+  "validation_folds": 4,
+  "features": [
+    "close",
+    "lag_close_1",
+    "lag_close_2",
+    "lag_close_5",
+    "return_1",
+    "return_5",
+    "range_pct",
+    "mean_close_5",
+    "std_return_5",
+    "weekday"
+  ],
+  "selected_arima": {
+    "1": [
+      0,
+      1,
+      0
+    ],
+    "5": [
+      0,
+      1,
+      0
+    ]
+  },
+  "selected_rf": {
+    "1": {
+      "n_estimators": 120,
+      "max_depth": 4,
+      "min_samples_leaf": 3,
+      "max_features": 0.8
+    },
+    "5": {
+      "n_estimators": 120,
+      "max_depth": 4,
+      "min_samples_leaf": 3,
+      "max_features": 0.8
+    }
+  },
+  "python": "3.10.11",
+  "methodology": "CV on past, same test as Naive and MLP; frozen parameters; ARIMA state update without refit; RF log-return direct h",
+  "original_dmitry_files": [
+    "archive/dmitry_original_run_arima_rf_experiment.py",
+    "archive/dmitry_original_arima_rf_predictions.csv"
+  ]
+}

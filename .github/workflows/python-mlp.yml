@@ -21,8 +21,8 @@ jobs:
         run: python -m pip install -r requirements-mlp.txt
       - name: Проверить все тесты
         run: python -m pytest -q
-      - name: Воспроизвести Naive и MLP
+      - name: Воспроизвести Naive, MLP, ARIMA и RF
         run: |
           python run_daily_baseline.py
           python run_mlp_experiment.py
-
+          python run_arima_rf_experiment.py

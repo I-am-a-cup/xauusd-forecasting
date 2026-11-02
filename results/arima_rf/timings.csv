@@ -1,0 +1,5 @@
+﻿model,horizon,order,last_known_date,first_forecast_date,train_observations,fit_seconds,predict_seconds,warnings,refit_on_test,config,train_rows
+arima,1,"[0, 1, 0]",2026-08-14,2026-08-17,206.0,0.007009599998127669,0.130726000003051,[],False,,
+random_forest,1,,,,,0.1465191000024788,0.004841099987970665,,False,"{'n_estimators': 120, 'max_depth': 4, 'min_samples_leaf': 3, 'max_features': 0.8}",196.0
+arima,5,"[0, 1, 0]",2026-08-14,2026-08-17,206.0,0.004232299979776144,0.11897020001197234,[],False,,
+random_forest,5,,,,,0.14296109997667372,0.005785899993497878,,False,"{'n_estimators': 120, 'max_depth': 4, 'min_samples_leaf': 3, 'max_features': 0.8}",196.0
