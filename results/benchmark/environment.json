@@ -1,0 +1,29 @@
+{
+  "os": "Windows-10-10.0.26300-SP0",
+  "cpu": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+  "logical_cpu_count": 16,
+  "python": "3.10.11",
+  "numpy": "2.2.6",
+  "pandas": "2.3.3",
+  "scipy": "1.15.3",
+  "scikit_learn": "1.7.2",
+  "statsmodels": "0.14.6",
+  "threadpool_limit": 1,
+  "random_seed": 42,
+  "input_sha256": "6c7c312e584301d841cc118dfa70eaa7a0c11ccb4ac2d66ff98d1a8033bdcf1f",
+  "models": [
+    "naive",
+    "arima",
+    "mlp",
+    "random_forest"
+  ],
+  "warmup_runs": 1,
+  "measured_runs": 3,
+  "forecasts_per_model": 94,
+  "last_known_train_date": "2026-08-14",
+  "forecast_origin_start": "2026-08-17",
+  "forecast_origin_end": "2026-10-20",
+  "timing_scope": "Final fit of two selected horizons and all 94 forecasts; no CV search, no plots, file writing or data download.",
+  "prediction_scope": "ARIMA includes state updates without refit; RF and MLP do fixed-parameter prediction.",
+  "warning": "Wall-clock times are local to this computer and current versions, not direct results from the original authors' environments."
+}
