@@ -6,7 +6,11 @@ import pandas as pd
 PREDICTION_COLUMNS = {"origin_date", "target_date", "horizon", "model", "y_pred"}
 
 
-def assert_comparable_predictions(predictions: pd.DataFrame, horizons=(1, 5)) -> None:
+def assert_comparable_predictions(
+    predictions: pd.DataFrame,
+    horizons=(1, 5),
+    expected_models: tuple[str, ...] | None = None,
+) -> None:
     """Проверяет совпадение дат формирования прогноза для всех моделей и горизонтов.
 
     Это не заменяет временную валидацию обучения: проверка обнаруживает
@@ -23,8 +27,16 @@ def assert_comparable_predictions(predictions: pd.DataFrame, horizons=(1, 5)) ->
         p[col] = pd.to_datetime(p[col], errors="raise")
     if p.duplicated(["model", "horizon", "origin_date"]).any():
         raise ValueError("Повторяется прогноз для модели, горизонта и даты")
-    if set(p["horizon"].unique()) != set(horizons):
+    required_horizons = set(horizons)
+    if not required_horizons or set(p["horizon"].unique()) != required_horizons:
         raise ValueError("Неполный или некорректный набор горизонтов")
+    if p["model"].isna().any():
+        raise ValueError("Название модели не должно быть пустым")
+    if expected_models is not None and set(p["model"].unique()) != set(expected_models):
+        raise ValueError("Набор моделей не соответствует обязательному списку")
+    for model, group in p.groupby("model"):
+        if set(group["horizon"].unique()) != required_horizons:
+            raise ValueError(f"Не все горизонты представлены у модели {model}")
 
     expected = None
     for (model, horizon), group in p.groupby(["model", "horizon"]):
