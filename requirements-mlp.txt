@@ -1,0 +1,10 @@
+# Окружение расчёта MLP, Python 3.11.7. Отдельно от окружения baseline.
+numpy==1.26.4
+scipy==1.15.3
+pandas==2.3.3
+scikit-learn==1.8.0
+matplotlib==3.10.8
+joblib==1.5.3
+threadpoolctl==3.6.0
+pytest==8.4.2
+tzdata==2025.3
