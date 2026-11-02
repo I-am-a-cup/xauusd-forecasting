@@ -31,7 +31,9 @@ def predict_arima(prices: pd.DataFrame, last_known_index: int,
     started = perf_counter()
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        state = ARIMA(close[:last_known_index+1], order=order).fit()
+        # Явно фиксируем отсутствие детерминированного дрейфа.
+        # Для d=1 это также значение по умолчанию statsmodels.
+        state = ARIMA(close[:last_known_index+1], order=order, trend="n").fit()
     fit_seconds = perf_counter()-started
     result = []
     observed_last = last_known_index
