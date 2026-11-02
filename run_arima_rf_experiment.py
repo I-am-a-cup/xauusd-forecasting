@@ -1,236 +1,183 @@
+"""Корректный эксперимент: ARIMA и RF на том же Dukascopy и 47 датах.
 
-import pandas as pd
-import numpy as np
-import warnings
-from statsmodels.tsa.arima.model import ARIMA
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+Оригинальные файлы Дмитрия сохранены отдельно в archive/.
+Запуск из корня: python run_arima_rf_experiment.py
+"""
+from __future__ import annotations
 
-warnings.filterwarnings('ignore')
+from dataclasses import asdict
+import json
+from pathlib import Path
+from time import perf_counter
+import platform
 
-print("="*70)
-print("ПРОГНОЗИРОВАНИЕ XAU/USD: ARIMA и Random Forest")
-print("="*70)
-
-df = pd.read_csv('xauusd-d1-bid-2025-10-28-2026-10-28.csv')
-df['date'] = pd.to_datetime(df['timestamp'], unit='ms')
-df.set_index('date', inplace=True)
-prices = df['close']
-
-print(f"Загружено {len(prices)} записей")
-print(f"Период: {prices.index[0]} до {prices.index[-1]}")
-
-train_size = len(prices) - 30
-train = prices.iloc[:train_size]
-test = prices.iloc[train_size:]
-
-print(f"Train: {len(train)} дней")
-print(f"Test: {len(test)} дней")
-
-naive_pred_1 = train.iloc[-1]
-naive_pred_5 = train.iloc[-1]
-
-mae_naive_1 = mean_absolute_error(test.iloc[:1], [naive_pred_1])
-mae_naive_5 = mean_absolute_error(test.iloc[:5], [naive_pred_5]*5)
-
-print(f"\nNaive MAE (1 день): {mae_naive_1:.2f}")
-print(f"Naive MAE (5 дней): {mae_naive_5:.2f}")
-
-print("\n" + "="*70)
-print("ARIMA МОДЕЛЬ")
-print("="*70)
-
-train_values = train.values
-
-model_arima = ARIMA(train_values, order=(1,1,1))
-fitted_arima = model_arima.fit()
-
-forecast_arima_1 = fitted_arima.forecast(steps=1)
-forecast_arima_5 = fitted_arima.forecast(steps=5)
-
-mae_arima_1 = mean_absolute_error(test.iloc[:1], forecast_arima_1)
-mae_arima_5 = mean_absolute_error(test.iloc[:5], forecast_arima_5)
-
-print(f"ARIMA прогноз на 1 день: {forecast_arima_1[0]:.2f}")
-print(f"ARIMA прогноз на 5 дней: {forecast_arima_5[-1]:.2f}")
-print(f"ARIMA MAE (1 день): {mae_arima_1:.2f}")
-print(f"ARIMA MAE (5 дней): {mae_arima_5:.2f}")
-
-print("\n" + "="*70)
-print("RANDOM FOREST МОДЕЛЬ")
-print("="*70)
-
-def create_advanced_features(series, lags=10):
-    df_feat = pd.DataFrame({'price': series})
-    
-    for i in range(1, lags+1):
-        df_feat[f'lag_{i}'] = df_feat['price'].shift(i)
-    
-    df_feat['ma_3'] = df_feat['price'].rolling(window=3).mean()
-    df_feat['ma_5'] = df_feat['price'].rolling(window=5).mean()
-    df_feat['ma_10'] = df_feat['price'].rolling(window=10).mean()
-    df_feat['std_5'] = df_feat['price'].rolling(window=5).std()
-    df_feat['std_10'] = df_feat['price'].rolling(window=10).std()
-    df_feat['return_1'] = df_feat['price'].pct_change(1)
-    df_feat['return_5'] = df_feat['price'].pct_change(5)
-    df_feat['price_vs_ma5'] = df_feat['price'] - df_feat['ma_5']
-    df_feat['price_vs_ma10'] = df_feat['price'] - df_feat['ma_10']
-    
-    return df_feat.dropna()
-
-features_advanced = create_advanced_features(prices, lags=10)
-X = features_advanced.drop('price', axis=1)
-y = features_advanced['price']
-
-split_idx = len(X) - 30
-X_train = X.iloc[:split_idx]
-X_test = X.iloc[split_idx:]
-y_train = y.iloc[:split_idx]
-y_test = y.iloc[split_idx:]
-
-rf_model = RandomForestRegressor(n_estimators=200, max_depth=10, random_state=42)
-rf_model.fit(X_train, y_train)
-
-rf_predictions = rf_model.predict(X_test)
-mae_rf = mean_absolute_error(y_test, rf_predictions)
-rmse_rf = np.sqrt(mean_squared_error(y_test, rf_predictions))
-
-rf_pred_1 = rf_predictions[0]
-rf_pred_5 = rf_predictions[4]
-
-print(f"RF прогноз на 1 день: {rf_pred_1:.2f}")
-print(f"RF прогноз на 5 дней: {rf_pred_5:.2f}")
-print(f"RF MAE: {mae_rf:.2f}")
-print(f"RF RMSE: {rmse_rf:.2f}")
-
-print("\n" + "="*70)
-print("СОХРАНЕНИЕ РЕЗУЛЬТАТОВ")
-print("="*70)
-
-results = []
-origin_date = train.index[-1]
-
-for h, idx in [(1, 0), (5, 4)]:
-    results.append({
-        'origin_date': origin_date,
-        'target_date': test.index[idx],
-        'horizon': h,
-        'model': 'ARIMA',
-        'y_pred': fitted_arima.forecast(steps=h)[-1]
-    })
-    results.append({
-        'origin_date': origin_date,
-        'target_date': test.index[idx],
-        'horizon': h,
-        'model': 'RandomForest',
-        'y_pred': rf_model.predict(X_test.iloc[[idx]])[0]
-    })
-
-results_df = pd.DataFrame(results)
-results_df.to_csv('arima_rf_predictions.csv', index=False)
-
-print("\nРезультаты сохранены в arima_rf_predictions.csv")
-print(results_df)
-
-print("\n" + "="*70)
-print("ИТОГОВОЕ СРАВНЕНИЕ МОДЕЛЕЙ")
-print("="*70)
-
-print(f"\n{'Модель':<20} {'MAE (1 день)':<15} {'vs Naive':<15}")
-print("-"*60)
-print(f"{'Naive':<20} {mae_naive_1:<15.2f} {'baseline':<15}")
-print(f"{'ARIMA':<20} {mae_arima_1:<15.2f} {((mae_naive_1 - mae_arima_1)/mae_naive_1*100):+6.2f}%")
-print(f"{'Random Forest':<20} {mae_rf:<15.2f} {((mae_naive_1 - mae_rf)/mae_naive_1*100):+6.2f}%")
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
+import numpy as np
+import pandas as pd
+from threadpoolctl import threadpool_limits
 
-plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
-plt.rcParams['axes.unicode_minus'] = False
+from src.daily_features import FEATURES, model_table
+from src.metrics import assert_comparable_predictions, attach_actuals, evaluate
+from src.models.arima import CANDIDATES as ARIMA_ORDERS, predict_arima
+from src.models.random_forest import CANDIDATES as RF_CANDIDATES, fit_rf, predict_rf_fitted
+from src.models.baseline import predict_naive
+from src.validation import holdout_split, expanding_folds
 
-# ==================== ГРАФИК 1: СРАВНЕНИЕ ПРОГНОЗОВ ====================
-fig, axes = plt.subplots(1, 2, figsize=(16, 6))
 
-# Левый график — вся история + прогнозы на 1 день
-axes[0].plot(train.index, train.values, label='Тренировка', color='blue', linewidth=1.2, alpha=0.7)
-axes[0].plot(test.index, test.values, label='Тест (факт)', color='green', linewidth=1.5)
-axes[0].axvline(x=train.index[-1], color='gray', linestyle='--', linewidth=1.5, label='Раздел train/test')
+ROOT = Path(__file__).resolve().parent
+SOURCE = ROOT / "data/processed/xauusd_daily_dukascopy.csv"
+MLP = ROOT / "results/mlp/predictions.csv"
 
-axes[0].scatter(test.index[0], forecast_arima_1[0], color='red', s=120, zorder=5, 
-                label=f'ARIMA: {forecast_arima_1[0]:.0f}', edgecolors='black', linewidth=1.5)
-axes[0].scatter(test.index[0], rf_pred_1, color='orange', s=120, zorder=5, 
-                label=f'RF: {rf_pred_1:.0f}', edgecolors='black', linewidth=1.5)
-axes[0].scatter(test.index[0], naive_pred_1, color='purple', s=120, zorder=5, 
-                label=f'Naive: {naive_pred_1:.0f}', edgecolors='black', linewidth=1.5)
 
-axes[0].annotate(f'Факт: {test.iloc[0]:.0f}', 
-                 xy=(test.index[0], test.iloc[0]),
-                 xytext=(test.index[0] + pd.Timedelta(days=10), test.iloc[0] + 80),
-                 fontsize=10, fontweight='bold', color='green',
-                 arrowprops=dict(arrowstyle='->', color='green', lw=1.5))
+def rf_frame(prices, samples, horizon, predictions):
+    dates = pd.to_datetime(prices.date).dt.strftime("%Y-%m-%d").to_numpy()
+    indices = pd.Series(np.arange(len(dates)), index=pd.to_datetime(prices.date))
+    current = pd.to_datetime(samples.date).map(indices).to_numpy(dtype=int)
+    return pd.DataFrame({
+        "origin_date": dates[current],
+        "target_date": dates[current+horizon],
+        "horizon": horizon,
+        "model": "random_forest",
+        "y_pred": predictions,
+    })
 
-axes[0].set_xlabel('Дата')
-axes[0].set_ylabel('Цена золота (USD)')
-axes[0].set_title('XAU/USD: Прогноз на 1 день вперёд')
-axes[0].legend(loc='upper left', fontsize=9)
-axes[0].grid(True, alpha=0.3)
-axes[0].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-axes[0].tick_params(axis='x', rotation=45)
 
-# Правый график — прогноз на 5 дней
-axes[1].plot(train.index[-60:], train.values[-60:], label='Тренировка (последние 60)', 
-             color='blue', linewidth=1.2, alpha=0.7)
-axes[1].plot(test.index[:5], test.values[:5], label='Тест (факт, 5 дней)', 
-             color='green', linewidth=1.5, marker='o')
-axes[1].axvline(x=train.index[-1], color='gray', linestyle='--', linewidth=1.5)
+def run():
+    prices = pd.read_csv(SOURCE)
+    split = holdout_split(len(prices))
+    folds = expanding_folds(len(prices), 105, 25, 25,
+                            end_before=split.last_known_index+1)
+    final = model_table(prices, split.last_known_index, split.forecast_origins)
+    published = pd.read_csv(ROOT / "data/processed/xauusd_daily_model_ready.csv")
+    pd.testing.assert_frame_equal(final.reset_index(drop=True), published,
+                                  check_dtype=False, rtol=1e-10, atol=1e-10)
 
-arima_5_path = fitted_arima.forecast(steps=5)
-axes[1].plot(test.index[:5], arima_5_path, color='red', linewidth=1.5, marker='s', label='ARIMA')
-axes[1].plot(test.index[:5], rf_model.predict(X_test.iloc[:5]), color='orange', 
-             linewidth=1.5, marker='^', label='Random Forest')
-axes[1].axhline(y=naive_pred_5, color='purple', linestyle=':', linewidth=1.5, label='Naive')
+    cv = []
+    for candidate, order in enumerate(ARIMA_ORDERS):
+        for fold_id, fold in enumerate(folds, 1):
+            preds, _ = predict_arima(prices, fold.last_known_index,
+                                     fold.forecast_origins, order)
+            evaluated = attach_actuals(preds, prices)
+            for horizon in (1, 5):
+                g = evaluated[evaluated.horizon.eq(horizon)]
+                cv.append(dict(model="arima", horizon=horizon, candidate=candidate,
+                               fold=fold_id, mae=float(np.mean(np.abs(g.y_pred-g.y_true))),
+                               order=str(order), n=len(g),
+                               last_known_date=prices.date.iloc[fold.last_known_index]))
+    for horizon in (1, 5):
+        for candidate, config in enumerate(RF_CANDIDATES):
+            for fold_id, fold in enumerate(folds, 1):
+                table = model_table(prices, fold.last_known_index, fold.forecast_origins)
+                train = table[table.split.eq("train")]
+                valid = table[table.split.eq("test")]
+                model, seconds = fit_rf(train, horizon, config)
+                pred = predict_rf_fitted(model, valid)
+                y = valid[f"target_close_next_{horizon}d"].to_numpy(dtype=float)
+                cv.append(dict(model="random_forest", horizon=horizon,
+                               candidate=candidate, fold=fold_id,
+                               mae=float(np.mean(np.abs(pred-y))), n=len(y),
+                               fit_seconds=seconds, config=str(asdict(config)),
+                               last_known_date=prices.date.iloc[fold.last_known_index]))
+    cv_frame = pd.DataFrame(cv)
+    chosen = {}
+    for model in ("arima", "random_forest"):
+        chosen[model] = {}
+        for h in (1, 5):
+            scores = cv_frame[(cv_frame.model == model) & (cv_frame.horizon == h)].groupby("candidate").mae.mean()
+            chosen[model][h] = int(scores.idxmin())
 
-axes[1].set_xlabel('Дата')
-axes[1].set_ylabel('Цена золота (USD)')
-axes[1].set_title('XAU/USD: Прогноз на 5 дней вперёд')
-axes[1].legend(loc='upper right', fontsize=9)
-axes[1].grid(True, alpha=0.3)
-axes[1].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-axes[1].tick_params(axis='x', rotation=45)
+    all_predictions = []
+    timings = []
+    for horizon in (1, 5):
+        order = ARIMA_ORDERS[chosen["arima"][horizon]]
+        pred, info = predict_arima(prices, split.last_known_index,
+                                   split.forecast_origins, order, horizons=(horizon,))
+        all_predictions.append(pred)
+        timings.append(dict(model="arima", horizon=horizon, **info))
 
-plt.tight_layout()
-plt.savefig('forecast_comparison.png', dpi=150, bbox_inches='tight')
-plt.show()
-print(" График сохранён: forecast_comparison.png")
+        config = RF_CANDIDATES[chosen["random_forest"][horizon]]
+        train = final[final.split.eq("train")]
+        test = final[final.split.eq("test")]
+        estimator, fit_seconds = fit_rf(train, horizon, config)
+        before = perf_counter()
+        y_pred = predict_rf_fitted(estimator, test)
+        predict_seconds = perf_counter()-before
+        all_predictions.append(rf_frame(prices, test, horizon, y_pred))
+        timings.append(dict(model="random_forest", horizon=horizon,
+                            config=asdict(config), train_rows=len(train),
+                            fit_seconds=fit_seconds, predict_seconds=predict_seconds,
+                            refit_on_test=False))
+    additions = pd.concat(all_predictions, ignore_index=True)
+    naive = predict_naive(prices, split.forecast_origins)
+    mlp = pd.read_csv(MLP)
+    combined = pd.concat([naive, mlp, additions], ignore_index=True)
+    assert_comparable_predictions(combined,
+                                  expected_models=("naive", "mlp", "arima", "random_forest"))
+    scored = attach_actuals(combined, prices)
+    metrics = evaluate(scored)
+    naive_mae = metrics[metrics.model.eq("naive")].set_index("horizon").mae
+    metrics["mae_delta_vs_naive"] = metrics.mae - metrics.horizon.map(naive_mae)
+    metrics["mae_change_pct_vs_naive"] = 100*metrics.mae_delta_vs_naive / metrics.horizon.map(naive_mae)
 
-# ==================== ГРАФИК 2: ВАЖНОСТЬ ПРИЗНАКОВ RF ====================
-feature_names = X.columns.tolist()
-importances = rf_model.feature_importances_
+    blocks = []
+    for num, indices in enumerate(np.array_split(np.array(split.forecast_origins), 3), 1):
+        selected = pd.to_datetime(prices.date.iloc[indices])
+        x = scored[scored.origin_date.isin(selected)].copy()
+        b = evaluate(x)
+        b["block"] = num
+        b["first_origin"] = selected.iloc[0].strftime("%Y-%m-%d")
+        b["last_origin"] = selected.iloc[-1].strftime("%Y-%m-%d")
+        blocks.append(b)
 
-feature_importance_df = pd.DataFrame({
-    'Признак': feature_names,
-    'Важность': importances
-}).sort_values('Важность', ascending=True)
+    target = ROOT / "results/arima_rf"
+    target.mkdir(parents=True, exist_ok=True)
+    additions.to_csv(target / "predictions.csv", index=False, encoding="utf-8-sig")
+    additions.to_csv(ROOT / "arima_rf_predictions.csv", index=False, encoding="utf-8-sig")
+    combined.to_csv(target / "all_four_predictions.csv", index=False, encoding="utf-8-sig")
+    metrics.to_csv(target / "comparison.csv", index=False, encoding="utf-8-sig")
+    cv_frame.to_csv(target / "validation.csv", index=False, encoding="utf-8-sig")
+    pd.concat(blocks).to_csv(target / "temporal_blocks.csv", index=False, encoding="utf-8-sig")
+    pd.DataFrame(timings).to_csv(target / "timings.csv", index=False, encoding="utf-8-sig")
+    meta = {
+        "source": str(SOURCE.relative_to(ROOT)),
+        "test_last_known": prices.date.iloc[split.last_known_index],
+        "first_test_origin": prices.date.iloc[split.forecast_origins[0]],
+        "last_test_origin": prices.date.iloc[split.forecast_origins[-1]],
+        "test_origins": len(split.forecast_origins),
+        "validation_folds": len(folds),
+        "features": list(FEATURES),
+        "selected_arima": {str(h):list(ARIMA_ORDERS[i]) for h,i in chosen["arima"].items()},
+        "selected_rf": {str(h):asdict(RF_CANDIDATES[i]) for h,i in chosen["random_forest"].items()},
+        "python": platform.python_version(),
+        "methodology": "CV on past, same test as Naive and MLP; frozen parameters; ARIMA state update without refit; RF log-return direct h",
+        "original_dmitry_files": ["archive/dmitry_original_run_arima_rf_experiment.py", "archive/dmitry_original_arima_rf_predictions.csv"],
+    }
+    (target/"metadata.json").write_text(json.dumps(meta,ensure_ascii=False,indent=2),encoding="utf-8")
 
-plt.figure(figsize=(10, 7))
-plt.barh(feature_importance_df['Признак'], feature_importance_df['Важность'], 
-         color='steelblue', edgecolor='black', linewidth=0.5)
-plt.xlabel('Важность признака')
-plt.ylabel('Признак')
-plt.title('Важность признаков в Random Forest')
-plt.grid(axis='x', alpha=0.3)
-plt.tight_layout()
-plt.savefig('feature_importance.png', dpi=150, bbox_inches='tight')
-plt.show()
-print(" График сохранён: feature_importance.png")
-print("\n" + "="*70)
-print("ВЫВОД")
-print("="*70)
-improvement = (mae_naive_1 - mae_rf)/mae_naive_1*100
-print(f"""
-Random Forest с 19 признаками показал лучший результат:
-- MAE: {mae_rf:.2f} (улучшение на {improvement:.1f}% относительно Naive)
-- Ключ к успеху - инженерия признаков: лаги, скользящие средние, 
-  волатильность и дневные изменения цены
+    fig, axes = plt.subplots(2, 2, figsize=(13, 8), constrained_layout=True)
+    scored["abs_error"]=(scored.y_true-scored.y_pred).abs()
+    for i,h in enumerate((1,5)):
+        for name, g in scored[scored.horizon.eq(h)].groupby("model"):
+            axes[i,0].plot(g.origin_date,g.y_pred,label=name,linewidth=1)
+            axes[i,1].plot(g.origin_date,g.abs_error,label=name,linewidth=1)
+        ground=scored[(scored.horizon.eq(h)) & scored.model.eq("naive")]
+        axes[i,0].plot(ground.origin_date,ground.y_true,color="black",label="actual",linewidth=1)
+        for axis in axes[i]:
+            axis.tick_params(axis="x",rotation=35)
+            axis.grid(alpha=0.2)
+            axis.legend()
+        axes[i,0].set_title(f"h={h}: prediction and target")
+        axes[i,1].set_title(f"h={h}: absolute error")
+    fig.savefig(target/"comparison.png",dpi=140)
+    plt.close(fig)
+    print("Согласованные метрики четырёх подходов:")
+    print(metrics.to_string(index=False))
+    print("Выбрано по валидации:",meta["selected_arima"],meta["selected_rf"])
+    return metrics
 
-ARIMA не смогла превзойти Naive, что типично для финансовых рядов.
-""")
+
+if __name__ == "__main__":
+    with threadpool_limits(limits=1):
+        run()
