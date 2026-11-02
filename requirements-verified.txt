@@ -1,0 +1,7 @@
+# Версии, на которых выполнены проверки, Python 3.10.11.
+numpy==2.2.6
+pandas==2.3.3
+scikit-learn==1.7.2
+statsmodels==0.14.6
+matplotlib==3.10.3
+pytest==9.2.0
