@@ -53,24 +53,28 @@ MLP запускается командой `python run_mlp_experiment.py`; то
 ./scripts/download_quotes.ps1
 ```
 
-## Как запустить то, что уже работает
+## Как воспроизвести основной эксперимент
 
-На Windows в PowerShell:
+Для воспроизведения опубликованных результатов MLP используйте **Python 3.11.7** и зависимости из `requirements-mlp.txt`. Из корня репозитория в Windows PowerShell:
 
 ```powershell
 git clone https://github.com/I-am-a-cup/xauusd-forecasting.git
 cd xauusd-forecasting
 
-py -m venv .venv
+py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-mlp.txt
 
 python -m pytest -q
-python -m src.data_audit data/raw/xauusd-d1-bid-2025-10-28-2026-10-28.csv
-python run_experiment.py --demo
+python run_daily_baseline.py
+python run_mlp_experiment.py
 ```
 
-Команда `--demo` использует **искусственные цены** для проверки кода. Это не результаты прогнозирования золота. Полный запуск на реальных данных появится после подготовки торгового ряда и остальных моделей.
+Исходные котировки Dukascopy H1 уже находятся в `data/raw/`; сетевое скачивание для воспроизведения не требуется. Скрипт `run_daily_baseline.py` заново готовит дневные сессии, цели и Naive; `run_mlp_experiment.py` подбирает конфигурации на временной валидации и сохраняет MLP-прогнозы.
+
+Для интеграции без повторного подбора используйте `src.models.mlp.predict_mlp()`: по умолчанию функция читает **отобранные конфигурации** из `results/mlp/metadata.json`. Если этот файл отсутствует, функция выдаёт ошибку, а не обучает модель с неподтверждёнными настройками. Явное чтение: `src.models.mlp.load_selected_configs()`.
+
+Старый `python run_experiment.py --demo` остаётся проверкой на **синтетических** ценах и не является результатом практики. Результаты нейросетевой части и её ограничения — в [MLP_REPORT.md](MLP_REPORT.md). Итоговый запуск всех четырёх моделей будет добавлен после ARIMA и Random Forest.
 
 ## Формат результатов
 

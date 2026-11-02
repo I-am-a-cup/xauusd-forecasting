@@ -104,7 +104,7 @@ python run_mlp_experiment.py
 - `metadata.json`, `timings.csv` — параметры, предупреждения, версии, SHA-256 данных/протокола и время.
 - `presentation/mlp_speaker_notes.md` — содержание двух слайдов, речь и вопросы для защиты.
 
-Для интеграции из Python доступна `src.models.mlp.predict_mlp(prices, origins, last_known_index=..., configs={1: ..., 5: ...})`. Передавать выбранные конфигурации из `metadata.json`; значения по умолчанию предназначены для проверки контракта. Функция возвращает DataFrame общего формата, не подбирая настройки по переданным датам теста.
+Для интеграции используйте `src.models.mlp.predict_mlp(prices, origins, last_known_index=...)`: если `configs` не указан, функция **сама загружает утверждённые настройки** из `results/mlp/metadata.json`, а не настройки по умолчанию. Если файла нет, она явно сообщает об ошибке. При желании настройки можно получить из JSON через `src.models.mlp.load_selected_configs()` и явно передать как `configs={1: MLPConfig(...), 5: MLPConfig(...)}`. Функция возвращает DataFrame общего формата и не подбирает параметры на тесте.
 
 ## Проверки и ограничения
 

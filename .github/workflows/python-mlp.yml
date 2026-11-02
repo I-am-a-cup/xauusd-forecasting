@@ -1,0 +1,27 @@
+name: Проверка Python и MLP
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Тесты и воспроизведение
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.7'
+          cache: 'pip'
+          cache-dependency-path: requirements-mlp.txt
+      - name: Установить зафиксированные зависимости
+        run: python -m pip install -r requirements-mlp.txt
+      - name: Проверить все тесты
+        run: python -m pytest -q
+      - name: Воспроизвести Naive и MLP
+        run: |
+          python run_daily_baseline.py
+          python run_mlp_experiment.py

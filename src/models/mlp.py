@@ -4,6 +4,8 @@
 Входы — ровно 10 FEATURES из общего протокола.
 """
 from dataclasses import dataclass
+from pathlib import Path
+import json
 from time import perf_counter
 import warnings
 
@@ -90,11 +92,40 @@ def forecast_frame(prices, samples, horizon, predicted):
         model='mlp', y_pred=predicted), columns=OUTPUT_COLUMNS)
 
 
+def load_selected_configs(metadata_path: str | Path | None = None) -> dict[int, MLPConfig]:
+    """Загрузить именно выбранные по валидации конфигурации из отчёта.
+
+    Если метаданные отсутствуют или повреждены, запрещаем незаметно
+    переходить на дефолтные параметры сети.
+    """
+    path = (Path(metadata_path) if metadata_path is not None else
+            Path(__file__).resolve().parents[2] / 'results/mlp/metadata.json')
+    metadata = json.loads(path.read_text(encoding='utf-8'))
+    selected = metadata.get('selected')
+    if not isinstance(selected, dict) or set(selected) != {'1', '5'}:
+        raise ValueError("В metadata.json должны быть выбранные параметры h=1 и h=5")
+    configs = {}
+    for horizon in (1, 5):
+        raw = selected[str(horizon)]
+        if not isinstance(raw, dict):
+            raise ValueError(f"Некорректная конфигурация h={horizon}")
+        layers = raw.get('hidden_layer_sizes')
+        alpha = raw.get('alpha')
+        max_iter = raw.get('max_iter')
+        if (not isinstance(layers, (tuple, list)) or not layers
+            or any(type(n) is not int or n <= 0 for n in layers)
+            or type(alpha) not in (float, int) or not 0 < alpha < float('inf')
+            or type(max_iter) is not int or max_iter <= 0):
+            raise ValueError(f"Некорректные параметры MLP для h={horizon}")
+        configs[horizon] = MLPConfig(tuple(layers), float(alpha), max_iter)
+    return configs
+
+
 def predict_mlp(prices, origins, *, last_known_index, configs=None, random_state=42):
     """Общий контракт: 5 стандартных столбцов, оба горизонта.
 
-    prices: упорядоченные дневные OHLC. configs — {1: MLPConfig, 5: ...},
-    заранее выбранные на временной валидации. Подбора по тесту здесь нет.
+    Без configs загружает конфигурации из metadata.json, выбранные на CV,
+    а НЕ использует параметры по умолчанию. Подбора по тесту здесь нет.
     """
     if not pd.to_datetime(prices.date).is_monotonic_increasing:
         raise ValueError("Дневные цены должны быть отсортированы")
@@ -105,9 +136,13 @@ def predict_mlp(prices, origins, *, last_known_index, configs=None, random_state
     test = table[table.split.eq('test')]
     if len(test) != len(origins):
         raise ValueError("Не для всех дат доступны признаки и целевые даты")
+    if configs is None:
+        configs = load_selected_configs()
+    if set(configs) != {1, 5} or any(not isinstance(c, MLPConfig) for c in configs.values()):
+        raise ValueError("Нужны MLPConfig для обоих горизонтов 1 и 5")
     result = []
     for h in (1, 5):
         estimator, _ = fit_mlp(table[table.split.eq('train')], h,
-                              (configs or {}).get(h, MLPConfig()), random_state)
+                              configs[h], random_state)
         result.append(forecast_frame(prices, test, h, predict_fitted(estimator, test)))
     return pd.concat(result, ignore_index=True)
