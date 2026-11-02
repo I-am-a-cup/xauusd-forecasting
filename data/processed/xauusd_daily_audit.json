@@ -1,0 +1,102 @@
+{
+  "source": "Dukascopy XAU/USD H1 Bid, объём включён",
+  "timezone": "America/New_York",
+  "official_session": "18:00–17:00 по Нью-Йорку",
+  "range_start": "2025-10-28",
+  "range_end_exclusive": "2026-10-28",
+  "hourly_rows": 5934,
+  "observed_sessions_in_range": 258,
+  "accepted_sessions": 258,
+  "first_date": "2025-10-28",
+  "last_date": "2026-10-27",
+  "short_sessions_for_review": [
+    {
+      "date": "2025-11-27",
+      "hours": 21,
+      "last_bar_end_ny": "15:00",
+      "status": "Требует сверки с праздничным расписанием"
+    },
+    {
+      "date": "2025-11-28",
+      "hours": 21,
+      "last_bar_end_ny": "15:00",
+      "status": "Требует сверки с праздничным расписанием"
+    },
+    {
+      "date": "2025-12-24",
+      "hours": 20,
+      "last_bar_end_ny": "14:00",
+      "status": "Требует сверки с праздничным расписанием"
+    },
+    {
+      "date": "2026-01-19",
+      "hours": 21,
+      "last_bar_end_ny": "15:00",
+      "status": "Требует сверки с праздничным расписанием"
+    },
+    {
+      "date": "2026-02-16",
+      "hours": 21,
+      "last_bar_end_ny": "15:00",
+      "status": "Требует сверки с праздничным расписанием"
+    },
+    {
+      "date": "2026-05-25",
+      "hours": 21,
+      "last_bar_end_ny": "15:00",
+      "status": "Требует сверки с праздничным расписанием"
+    },
+    {
+      "date": "2026-06-19",
+      "hours": 19,
+      "last_bar_end_ny": "13:00",
+      "status": "Требует сверки с праздничным расписанием"
+    },
+    {
+      "date": "2026-07-03",
+      "hours": 19,
+      "last_bar_end_ny": "13:00",
+      "status": "Требует сверки с праздничным расписанием"
+    },
+    {
+      "date": "2026-09-07",
+      "hours": 21,
+      "last_bar_end_ny": "15:00",
+      "status": "Требует сверки с праздничным расписанием"
+    }
+  ],
+  "excluded_sessions": [],
+  "note": "Сокращённые сессии включены при непрерывных котировках; праздничные часы сверить отдельно.",
+  "dataset_rows": 243,
+  "train_rows": 196,
+  "test_rows": 47,
+  "last_observed_training_date": "2026-08-14",
+  "holdout_first_origin": "2026-08-17",
+  "holdout_last_origin": "2026-10-20",
+  "holdout_predictions_each_horizon": 47,
+  "expanding_validation_folds": 4,
+  "folds": [
+    {
+      "last_train_date": "2026-03-25",
+      "first_validation_origin": "2026-03-26",
+      "last_validation_origin": "2026-04-23"
+    },
+    {
+      "last_train_date": "2026-04-30",
+      "first_validation_origin": "2026-05-01",
+      "last_validation_origin": "2026-05-28"
+    },
+    {
+      "last_train_date": "2026-06-04",
+      "first_validation_origin": "2026-06-05",
+      "last_validation_origin": "2026-07-02"
+    },
+    {
+      "last_train_date": "2026-07-09",
+      "first_validation_origin": "2026-07-10",
+      "last_validation_origin": "2026-08-06"
+    }
+  ],
+  "features_note": "10 признаков, только золото. Нет внешних индексов или заполнения пропусков. Нормализация не применяется. Для обучаемых моделей её параметры следует подбирать только на обучающем окне.",
+  "conclusion_scope": "Метрики относятся только к наивному прогнозу, не к ARIMA, Random Forest или MLP. Сокращённые праздничные сессии отмечены для отдельной проверки."
+}
