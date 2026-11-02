@@ -1,4 +1,4 @@
-# Окружение расчёта MLP, Python 3.11.7. Отдельно от окружения baseline.
+# Единое окружение Naive, MLP, ARIMA и Random Forest (Python 3.11.7).
 numpy==1.26.4
 scipy==1.15.3
 pandas==2.3.3
@@ -8,3 +8,4 @@ joblib==1.5.3
 threadpoolctl==3.6.0
 pytest==8.4.2
 tzdata==2025.3
+statsmodels==0.14.6
